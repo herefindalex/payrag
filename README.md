@@ -156,3 +156,34 @@ ablation remain blocked until a human accepts the snapshot chunk bindings. The
 manifest also remains ineligible for comparison claims until the generation
 model, tokenizer, prompt version, and common maximum context token budget are
 fixed and actual provider runs are recorded.
+
+## Human evidence review
+
+Prepare a full-text review packet and a pending decision template without
+changing the pilot or promoting ranked candidates to gold:
+
+```bash
+conda run -n finance env PYTHONPATH=src python -m payrag.evidence_review prepare \
+  --pilot config/retrieval-pilot.yaml \
+  --chunks data/normalized/<snapshot-id>-c900/chunks.jsonl \
+  --candidates data/evaluation/<snapshot-id>/evidence-binding-candidates.json \
+  --packet-output reports/<snapshot-id>/evidence-review-packet.md \
+  --decisions-output reports/<snapshot-id>/evidence-review-decisions.yaml
+```
+
+The reviewer must inspect every binding, select one or more same-source snapshot
+chunks, set every binding to `accepted`, and complete the reviewer, UTC time,
+top-level status, and attestation fields. Validation fails closed when a binding
+is missing, protected metadata changed, the candidate report changed, or an
+accepted chunk belongs to another source:
+
+```bash
+conda run -n finance env PYTHONPATH=src python -m payrag.evidence_review validate \
+  --decisions reports/<snapshot-id>/evidence-review-decisions.yaml \
+  --chunks data/normalized/<snapshot-id>-c900/chunks.jsonl \
+  --candidates data/evaluation/<snapshot-id>/evidence-binding-candidates.json \
+  --output data/evaluation/<snapshot-id>/gold-evidence-bindings.json
+```
+
+Review packets, decisions, and approved gold artifacts stay under ignored local
+directories. The validator never edits the tracked retrieval pilot.
