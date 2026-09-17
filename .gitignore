@@ -1,0 +1,25 @@
+.idea
+.agents
+.codex
+.gstack
+.env
+.env.*
+!.env.example
+
+# Local PoC runtime/build outputs
+/data/
+/reports/
+/__pycache__/
+*.py[cod]
+/.pytest_cache/
+/.mypy_cache/
+*.egg-info/
+/build/
+/.venv/
+/prods
+/prods.exe
+/web/ui/node_modules/
+/web/ui/dist/
+/dist/
+*.test
+coverage.out

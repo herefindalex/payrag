@@ -1,0 +1,258 @@
+{
+  "project": "Payment Integration Support RAG",
+  "version": "0.1-preflight",
+  "created_on": "2026-09-17",
+  "timezone": "Asia/Taipei",
+  "purpose": "Private research; source metadata only. No third-party document dump or vector index included.",
+  "status": "Source discovery and page inspection only; no ingestion acceptance or retrieval benchmark completed.",
+  "source_count": 13,
+  "acquisition_observations": [
+    "Canonical pages were readable through the web tool, including pages whose .md or query variants returned tool errors.",
+    "Direct runtime HTTP acquisition was attempted and failed at DNS resolution. No raw snapshot hashes have been manufactured.",
+    "Blank ?query= expansion requests on PaymentIntent, Refund and Event reference pages failed in the web tool. Nested definition completeness remains unverified.",
+    "Official API pages describe ?query=<name> and empty ?query= as documentation expansion controls; do not confuse these with API expand parameters."
+  ],
+  "source_inventory_complete": false,
+  "declared_latest_api_version_observed": {
+    "value": "2026-08-26.dahlia",
+    "source_id": "D08",
+    "as_of": "2026-09-17",
+    "role": "Observation only; not a default version for all cases or a verified version of any account."
+  },
+  "sources": [
+    {
+      "source_id": "D00",
+      "title": "Stripe documentation index",
+      "canonical_url": "https://docs.stripe.com/llms.txt",
+      "source_kind": "discovery_only",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "not_applicable",
+      "index_eligibility": "discovery_only",
+      "notes": [
+        "Navigation links; not an exhaustive site inventory. Agent-oriented instructions are not application instructions."
+      ]
+    },
+    {
+      "source_id": "D01",
+      "title": "Idempotent requests",
+      "canonical_url": "https://docs.stripe.com/api/idempotent_requests",
+      "source_kind": "api_reference",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "pending",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Key reuse, retained results, expiry, parameter mismatch, validation/concurrency exceptions."
+      ]
+    },
+    {
+      "source_id": "D02",
+      "title": "Advanced error handling",
+      "canonical_url": "https://docs.stripe.com/error-low-level",
+      "source_kind": "guide",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "not_applicable",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Network errors; server errors; indeterminate outcomes."
+      ]
+    },
+    {
+      "source_id": "D03",
+      "title": "Receive Stripe events in your webhook endpoint",
+      "canonical_url": "https://docs.stripe.com/webhooks",
+      "source_kind": "guide",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "not_applicable",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Snapshot events, delivery order, duplicate events, retries, version context."
+      ]
+    },
+    {
+      "source_id": "D04",
+      "title": "Resolve webhook signature verification errors",
+      "canonical_url": "https://docs.stripe.com/webhooks/signature",
+      "source_kind": "guide",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "not_applicable",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Raw request body and endpoint-secret provenance; no secret values collected."
+      ]
+    },
+    {
+      "source_id": "D05",
+      "title": "Payment status updates",
+      "canonical_url": "https://docs.stripe.com/payments/payment-intents/verifying-status",
+      "source_kind": "guide",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "not_applicable",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "PaymentIntent status versus payment summary and later refunds."
+      ]
+    },
+    {
+      "source_id": "D06",
+      "title": "Refund and cancel payments",
+      "canonical_url": "https://docs.stripe.com/refunds",
+      "source_kind": "guide",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "not_applicable",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Refund lifecycle, partial refunds, uncaptured payments, payment-method conditions."
+      ]
+    },
+    {
+      "source_id": "D07",
+      "title": "The Refund object",
+      "canonical_url": "https://docs.stripe.com/api/refunds/object",
+      "source_kind": "api_reference",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "pending",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "status, pending_reason, payment_intent, failure_reason; nested fields require expansion checks."
+      ]
+    },
+    {
+      "source_id": "D08",
+      "title": "Versioning",
+      "canonical_url": "https://docs.stripe.com/api/versioning",
+      "source_kind": "api_reference",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "pending",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Request, SDK and webhook endpoint version dimensions."
+      ]
+    },
+    {
+      "source_id": "D09",
+      "title": "The Event object",
+      "canonical_url": "https://docs.stripe.com/api/events/object",
+      "source_kind": "api_reference",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "pending",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "api_version, id, type, created, data; nested fields require expansion checks."
+      ]
+    },
+    {
+      "source_id": "D10",
+      "title": "The PaymentIntent object",
+      "canonical_url": "https://docs.stripe.com/api/payment_intents/object",
+      "source_kind": "api_reference",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "pending",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "status, capture_method, latest_charge; nested fields require expansion checks."
+      ]
+    },
+    {
+      "source_id": "D11",
+      "title": "Cancel a PaymentIntent",
+      "canonical_url": "https://docs.stripe.com/api/payment_intents/cancel",
+      "source_kind": "api_reference",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "pending",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Cancellation eligibility and the requires_capture case."
+      ]
+    },
+    {
+      "source_id": "D12",
+      "title": "How Payment Intents and Setup Intents work",
+      "canonical_url": "https://docs.stripe.com/payments/paymentintents/lifecycle.md",
+      "source_kind": "guide",
+      "verification_date": "2026-09-17",
+      "verification_method": "Official page read through web tool; not a locally archived HTTP response.",
+      "web_read_status": "readable",
+      "raw_snapshot_status": "not_acquired",
+      "raw_sha256": null,
+      "retrieved_at": null,
+      "parser_status": "not_run",
+      "schema_expansion_status": "not_applicable",
+      "index_eligibility": "pending_scope_and_parser_review",
+      "notes": [
+        "Lifecycle; mixed PaymentIntent/SetupIntent content must stay distinguished."
+      ]
+    }
+  ]
+}

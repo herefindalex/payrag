@@ -1,0 +1,226 @@
+project: Payment Integration Support RAG
+dataset_version: public-retrieval-v1
+created_on: '2026-09-17'
+language_policy: English corpus and baseline; bilingual paired prompts are variants
+  of the same case, not independent samples.
+purpose: Development-only source-level retrieval diagnostics. Answer keys and prohibited-claim
+  labels are intentionally excluded.
+evaluation_status: development_retrieval_only_not_formal_benchmark
+snapshot_binding_required: true
+cases:
+- case_id: P01
+  family: idempotency_network
+  prompt_en: A PaymentIntent-creation POST timed out while reading its response one
+    minute ago. The original idempotency key and exact parameters are available. What
+    should a retry preserve, and what can be concluded about the original result?
+  prompt_zh_TW: 一分鐘前送出建立 PaymentIntent 的 POST，但讀取回應逾時。已保存原本的 Idempotency-Key 與完整參數。重試時應維持什麼？目前能否判定原請求失敗？
+  retrieval_risks:
+  - semantic wording without an exact error code
+  - missing retention qualifier
+  split: development_pilot
+  evidence:
+  - source_id: D02
+    section_or_locator: Network errors
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D01
+    section_or_locator: Key retention and parameter comparison
+    role: qualifier
+    snapshot_chunk_ids: []
+- case_id: P02
+  family: idempotency_server_error
+  prompt_en: A POST with an idempotency key returned HTTP 500, and retrying with that
+    key returned the same result. Is switching keys a safe way to make the payment
+    run again?
+  prompt_zh_TW: 帶有 Idempotency-Key 的 POST 收到 HTTP 500；用原 key 重試又收到相同結果。是否可以換 key 讓這次付款重新執行？
+  retrieval_risks:
+  - retrieves generic retry advice but misses server-error exception
+  split: development_pilot
+  evidence:
+  - source_id: D02
+    section_or_locator: Server errors
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D01
+    section_or_locator: Saved status code and body
+    role: supporting
+    snapshot_chunk_ids: []
+- case_id: P03
+  family: idempotency_parameter_mismatch
+  prompt_en: A creation request using a key executed one minute ago. The amount is
+    now changed from 1000 to 1200 while reusing the key. Is this a safe way to update
+    the original payment?
+  prompt_zh_TW: 一分鐘前同一 key 的建立請求已執行；現在把 amount 從 1000 改成 1200，再送相同 key。這是安全更新原付款的方法嗎？
+  retrieval_risks:
+  - confuses a retry with a new business operation
+  split: development_pilot
+  evidence:
+  - source_id: D01
+    section_or_locator: Parameter comparison
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D02
+    section_or_locator: Network errors
+    role: supporting
+    snapshot_chunk_ids: []
+- case_id: P04
+  family: idempotency_pre_execution
+  prompt_en: The docs say failed results can be retained for an idempotency key. Does
+    that necessarily include a request rejected by validation before endpoint execution
+    begins?
+  prompt_zh_TW: 文件說相同 key 會保存失敗結果；但請求在端點開始執行前就因參數驗證失敗。這種情況也必定保存結果嗎？
+  retrieval_risks:
+  - absolute claims about all failures
+  split: development_pilot
+  evidence:
+  - source_id: D01
+    section_or_locator: Execution begins; validation and concurrent-request exceptions
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D02
+    section_or_locator: Content errors
+    role: qualifier
+    snapshot_chunk_ids: []
+- case_id: P05
+  family: webhook_duplicate_delivery
+  prompt_en: The same snapshot Event ID was delivered twice. Must it represent two
+    payments, and do the docs guarantee exactly-once execution of our business side
+    effects?
+  prompt_zh_TW: 同一個 snapshot Event ID 被送達兩次。系統是否必須把它視為兩筆付款？官方文件能否保證我們的業務副作用只執行一次？
+  retrieval_risks:
+  - confuses delivery identity with business-effect identity
+  split: development_pilot
+  evidence:
+  - source_id: D03
+    section_or_locator: Handle duplicate events
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D09
+    section_or_locator: id and data
+    role: supporting
+    snapshot_chunk_ids: []
+- case_id: P06
+  family: webhook_order
+  prompt_en: An earlier payment event arrived after a later event. Can receipt order,
+    or created alone, determine which state should overwrite our local record?
+  prompt_zh_TW: 較早產生的付款事件在較晚事件之後才送達。可以以收到的順序覆蓋本地狀態，或只靠 created 欄位判定最新狀態嗎？
+  retrieval_risks:
+  - overgeneralizes timestamps into an object version
+  split: development_pilot
+  evidence:
+  - source_id: D03
+    section_or_locator: Event ordering
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D09
+    section_or_locator: created and data
+    role: supporting
+    snapshot_chunk_ids: []
+- case_id: P07
+  family: version_context
+  prompt_en: After upgrading the Stripe SDK, webhook payloads still look old. No webhook
+    endpoint version or Event.api_version has been provided. Does this establish a
+    Stripe bug?
+  prompt_zh_TW: 升級 Stripe SDK 後，webhook payload 還是舊格式。我沒有提供 webhook endpoint 的版本或
+    Event.api_version。是不是 Stripe 傳錯？
+  retrieval_risks:
+  - account default treated as the sole version dimension
+  split: development_pilot
+  evidence:
+  - source_id: D08
+    section_or_locator: SDK and webhook endpoint versioning
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D09
+    section_or_locator: api_version
+    role: required
+    snapshot_chunk_ids: []
+- case_id: P08
+  family: webhook_signature
+  prompt_en: My handler parses and then reserializes JSON before checking the webhook
+    signature. The fields look identical. Why might verification still fail?
+  prompt_zh_TW: 我的 handler 先解析 JSON 再序列化，才做 webhook 簽章驗證。資料欄位看起來完全相同，為什麼仍可能失敗？
+  retrieval_risks:
+  - exact identifier retrieval
+  - unsafe debugging advice
+  split: development_pilot
+  evidence:
+  - source_id: D04
+    section_or_locator: Check the request body; Check the endpoint secret
+    role: required
+    snapshot_chunk_ids: []
+- case_id: P09
+  family: uncaptured_vs_refund
+  prompt_en: A manually captured card PaymentIntent is still requires_capture. When
+    abandoning this uncaptured payment, should it be treated like refunding a completed
+    payment?
+  prompt_zh_TW: 一筆手動 capture 的 card PaymentIntent 仍是 requires_capture。取消這筆尚未請款的交易時，應把它當成一般已完成付款退款嗎？
+  retrieval_risks:
+  - scope exception separated from generic refund text
+  split: development_pilot
+  evidence:
+  - source_id: D06
+    section_or_locator: Issue refunds / requires_capture qualification
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D11
+    section_or_locator: Cancellation of requires_capture
+    role: supporting
+    snapshot_chunk_ids: []
+  - source_id: D05
+    section_or_locator: Payment statuses and PaymentIntent statuses
+    role: supporting
+    snapshot_chunk_ids: []
+- case_id: P10
+  family: refund_status
+  prompt_en: A card refund was created and has an ID, but status is pending. Can we
+    say it has reached the card, and does pending alone identify the cause?
+  prompt_zh_TW: 建立 card refund 後取得 refund ID，但 status=pending。我可以通知顧客錢已經退到卡上嗎？pending
+    的原因是否能只靠這個字判定？
+  retrieval_risks:
+  - lifecycle status and actual bank receipt conflated
+  split: development_pilot
+  evidence:
+  - source_id: D07
+    section_or_locator: status; pending_reason
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D06
+    section_or_locator: Refund requests; Trace a refund
+    role: supporting
+    snapshot_chunk_ids: []
+- case_id: P11
+  family: payment_refund_lifecycles
+  prompt_en: A refund was issued after a successful payment, but the PaymentIntent
+    is still succeeded. Does that establish that the refund failed?
+  prompt_zh_TW: 付款完成後做了退款，為什麼 PaymentIntent 仍是 succeeded？這是否已能證明退款沒成功？
+  retrieval_risks:
+  - same word success applied to different object lifecycles
+  split: development_pilot
+  evidence:
+  - source_id: D05
+    section_or_locator: Payment statuses and PaymentIntent statuses / subsequent refunds
+    role: required
+    snapshot_chunk_ids: []
+  - source_id: D07
+    section_or_locator: status
+    role: supporting
+    snapshot_chunk_ids: []
+- case_id: P12
+  family: runtime_unknown
+  prompt_en: Here is a synthetic identifier, pi_example_not_real. Has this payment
+    succeeded now? No API response, event, or status is provided.
+  prompt_zh_TW: 這是一個測試用識別碼 pi_example_not_real。現在是否已經付款成功？我沒有提供任何 API 回應、事件或狀態。
+  retrieval_risks:
+  - hallucinates runtime access
+  - confuses background docs with transaction evidence
+  split: development_pilot
+  evidence:
+  - source_id: D05
+    section_or_locator: Inspect PaymentIntent status
+    role: background_only
+    snapshot_chunk_ids: []
+  - source_id: D10
+    section_or_locator: status
+    role: background_only
+    snapshot_chunk_ids: []
