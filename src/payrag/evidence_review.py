@@ -10,6 +10,8 @@ from typing import Any, Iterable
 
 import yaml
 
+from payrag.retrieval import BM25Index
+
 
 ATTESTATION = "I inspected the snapshot text for every accepted chunk."
 
@@ -46,13 +48,37 @@ def prepare_evidence_review(
     pilot_path: Path,
     chunks_path: Path,
     candidates_path: Path,
+    proposal_overrides_path: Path | None = None,
 ) -> tuple[str, dict[str, Any]]:
     pilot = _read_yaml(pilot_path)
     candidates = _read_json(candidates_path)
-    chunks = {chunk["chunk_id"]: chunk for chunk in _read_jsonl(chunks_path)}
+    chunk_records = _read_jsonl(chunks_path)
+    chunks = {chunk["chunk_id"]: chunk for chunk in chunk_records}
+    chunks_by_source: dict[str, list[dict[str, Any]]] = {}
+    for chunk in chunk_records:
+        chunks_by_source.setdefault(chunk["source_id"], []).append(chunk)
+    source_indexes = {
+        source_id: BM25Index(source_chunks)
+        for source_id, source_chunks in chunks_by_source.items()
+    }
     pilot_cases = {case["case_id"]: case for case in pilot.get("cases", [])}
     if candidates.get("status") != "pending_human_review":
         raise EvidenceReviewError("candidate report must be pending_human_review")
+
+    overrides: dict[tuple[str, int], dict[str, Any]] = {}
+    overrides_sha256 = None
+    if proposal_overrides_path is not None:
+        override_payload = _read_yaml(proposal_overrides_path)
+        if override_payload.get("snapshot_id") != candidates["snapshot_id"]:
+            raise EvidenceReviewError("proposal override snapshot does not match")
+        override_entries = override_payload.get("bindings", [])
+        overrides = {
+            (entry["case_id"], entry["evidence_ordinal"]): entry
+            for entry in override_entries
+        }
+        if len(overrides) != len(override_entries):
+            raise EvidenceReviewError("proposal overrides contain duplicate bindings")
+        overrides_sha256 = _sha256(proposal_overrides_path)
 
     decisions: dict[str, Any] = {
         "schema_version": 1,
@@ -62,15 +88,17 @@ def prepare_evidence_review(
         "reviewer": None,
         "reviewed_at": None,
         "attestation": None,
+        "proposal_overrides_sha256": overrides_sha256,
         "cases": [],
     }
     lines = [
         f"# Evidence review — snapshot {candidates['snapshot_id']}",
         "",
         "Review every binding against the full normalized snapshot text below.",
-        "Candidate rank is only a search aid and is not an approval decision.",
-        "Enter accepted chunk IDs in the decision YAML, set every binding to",
-        "`accepted`, then add the reviewer, UTC review time, top-level `approved`",
+        "Each binding starts with a system proposal. Candidate rank and proposal",
+        "are review aids rather than approval decisions. Set `review_action` to",
+        "`accept_proposal` or `accept_modified`, then add the reviewer, UTC time,",
+        "top-level `approved`",
         f"status, and this exact attestation: `{ATTESTATION}`",
         "",
     ]
@@ -94,16 +122,84 @@ def prepare_evidence_review(
         for binding in case_record.get("bindings", []):
             ordinal = binding["evidence_ordinal"]
             source_id = binding["source_id"]
+            source_index = source_indexes.get(source_id)
+            if source_index is None:
+                raise EvidenceReviewError(f"source {source_id} has no snapshot chunks")
+            proposal_query = " ".join(
+                part
+                for part in (
+                    pilot_case.get("prompt_en", ""),
+                    binding["section_or_locator"],
+                )
+                if part
+            )
+            proposal_results = source_index.search(proposal_query, top_k=3)
+            proposal = {
+                "origin": "source_scoped_bm25_prompt_plus_locator",
+                "confidence": "uncalibrated",
+                "proposed_chunk_ids": [result.chunk_id for result in proposal_results],
+                "rationale": (
+                    "Top same-source chunks for the English prompt plus evidence "
+                    "locator. Review the full text before accepting."
+                ),
+            }
+            override = overrides.get((case_id, ordinal))
+            if override is not None:
+                proposed_ids = override.get("proposed_chunk_ids")
+                if not isinstance(proposed_ids, list) or not proposed_ids:
+                    raise EvidenceReviewError(
+                        f"proposal override {(case_id, ordinal)} needs chunk IDs"
+                    )
+                proposal = {
+                    "origin": "reviewer_seeded_override",
+                    "confidence": override.get("confidence", "unreviewed"),
+                    "proposed_chunk_ids": proposed_ids,
+                    "rationale": override.get("rationale", ""),
+                }
+            for chunk_id in proposal["proposed_chunk_ids"]:
+                chunk = chunks.get(chunk_id)
+                if chunk is None or chunk["source_id"] != source_id:
+                    raise EvidenceReviewError(
+                        f"proposal chunk {chunk_id} is absent or has the wrong source"
+                    )
             lines.extend(
                 [
                     f"### Binding {ordinal}: {source_id} — {binding['role']}",
                     "",
                     f"Locator: `{binding['section_or_locator']}`",
                     "",
+                    f"System proposal ({proposal['origin']}): "
+                    + ", ".join(
+                        f"`{chunk_id}`"
+                        for chunk_id in proposal["proposed_chunk_ids"]
+                    ),
+                    "",
+                    f"Proposal rationale: {proposal['rationale']}",
+                    "",
                 ]
             )
             candidate_ids: list[str] = []
-            for candidate in binding.get("candidates", []):
+            display_candidates = list(binding.get("candidates", []))
+            displayed_ids = {
+                candidate["chunk_id"] for candidate in display_candidates
+            }
+            for result in proposal_results:
+                if result.chunk_id not in displayed_ids:
+                    display_candidates.append(
+                        {
+                            "rank": "proposal",
+                            "score": round(result.score, 6),
+                            "chunk_id": result.chunk_id,
+                        }
+                    )
+                    displayed_ids.add(result.chunk_id)
+            for chunk_id in proposal["proposed_chunk_ids"]:
+                if chunk_id not in displayed_ids:
+                    display_candidates.append(
+                        {"rank": "override", "score": "n/a", "chunk_id": chunk_id}
+                    )
+                    displayed_ids.add(chunk_id)
+            for candidate in display_candidates:
                 chunk_id = candidate["chunk_id"]
                 chunk = chunks.get(chunk_id)
                 if chunk is None:
@@ -138,12 +234,24 @@ def prepare_evidence_review(
                     "role": binding["role"],
                     "section_or_locator": binding["section_or_locator"],
                     "candidate_chunk_ids": candidate_ids,
+                    "proposal": proposal,
+                    "review_action": "pending_human_review",
                     "accepted_chunk_ids": [],
-                    "review_status": "pending_human_review",
                     "notes": "",
                 }
             )
         decisions["cases"].append(decision_case)
+
+    expected_override_keys = {
+        (case["case_id"], binding["evidence_ordinal"])
+        for case in candidates.get("cases", [])
+        for binding in case.get("bindings", [])
+    }
+    unknown_overrides = set(overrides) - expected_override_keys
+    if unknown_overrides:
+        raise EvidenceReviewError(
+            f"proposal overrides contain unknown bindings: {sorted(unknown_overrides)}"
+        )
 
     return "\n".join(lines).rstrip() + "\n", decisions
 
@@ -208,9 +316,22 @@ def validate_evidence_review(
         for field in ("source_id", "role", "section_or_locator"):
             if binding.get(field) != expected_binding.get(field):
                 raise EvidenceReviewError(f"binding {key} changed protected field {field}")
-        if binding.get("review_status") != "accepted":
-            raise EvidenceReviewError(f"binding {key} is not accepted")
-        selected = binding.get("accepted_chunk_ids")
+        review_action = binding.get("review_action")
+        if review_action == "accept_proposal":
+            proposal = binding.get("proposal")
+            if not isinstance(proposal, dict):
+                raise EvidenceReviewError(f"binding {key} has no proposal")
+            selected = proposal.get("proposed_chunk_ids")
+        elif review_action == "accept_modified":
+            selected = binding.get("accepted_chunk_ids")
+            if not str(binding.get("notes", "")).strip():
+                raise EvidenceReviewError(
+                    f"binding {key} needs notes for an accept_modified decision"
+                )
+        else:
+            raise EvidenceReviewError(
+                f"binding {key} review_action must be accept_proposal or accept_modified"
+            )
         if not isinstance(selected, list) or not selected:
             raise EvidenceReviewError(f"binding {key} needs accepted chunk IDs")
         if any(not isinstance(chunk_id, str) for chunk_id in selected):
@@ -245,6 +366,7 @@ def validate_evidence_review(
                 "source_id": binding["source_id"],
                 "role": binding["role"],
                 "section_or_locator": binding["section_or_locator"],
+                "review_action": review_action,
                 "accepted_chunks": selection_records,
                 "notes": binding.get("notes", ""),
             }
@@ -292,6 +414,7 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--pilot", type=Path, required=True)
     prepare.add_argument("--chunks", type=Path, required=True)
     prepare.add_argument("--candidates", type=Path, required=True)
+    prepare.add_argument("--proposal-overrides", type=Path)
     prepare.add_argument("--packet-output", type=Path, required=True)
     prepare.add_argument("--decisions-output", type=Path, required=True)
 
@@ -311,6 +434,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                 pilot_path=args.pilot,
                 chunks_path=args.chunks,
                 candidates_path=args.candidates,
+                proposal_overrides_path=args.proposal_overrides,
             )
             args.packet_output.parent.mkdir(parents=True, exist_ok=True)
             args.packet_output.write_text(packet, encoding="utf-8")

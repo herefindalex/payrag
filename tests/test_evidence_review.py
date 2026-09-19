@@ -94,7 +94,42 @@ class EvidenceReviewTests(unittest.TestCase):
         self.assertEqual(
             [], decisions["cases"][0]["bindings"][0]["accepted_chunk_ids"]
         )
+        binding = decisions["cases"][0]["bindings"][0]
+        self.assertEqual("pending_human_review", binding["review_action"])
+        self.assertEqual(["chunk-1"], binding["proposal"]["proposed_chunk_ids"])
         self.assertIn("Reuse the idempotency key.", packet)
+
+    def test_prepare_supports_a_reviewer_seeded_proposal(self) -> None:
+        override_path = self.root / "overrides.yaml"
+        override_path.write_text(
+            yaml.safe_dump(
+                {
+                    "snapshot_id": "snapshot",
+                    "bindings": [
+                        {
+                            "case_id": "P01",
+                            "evidence_ordinal": 0,
+                            "proposed_chunk_ids": ["chunk-1"],
+                            "confidence": "medium",
+                            "rationale": "Directly states the retry rule.",
+                        }
+                    ],
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+
+        _, decisions = prepare_evidence_review(
+            pilot_path=self.pilot_path,
+            chunks_path=self.chunks_path,
+            candidates_path=self.candidates_path,
+            proposal_overrides_path=override_path,
+        )
+
+        proposal = decisions["cases"][0]["bindings"][0]["proposal"]
+        self.assertEqual("reviewer_seeded_override", proposal["origin"])
+        self.assertEqual("medium", proposal["confidence"])
 
     def test_validate_requires_explicit_complete_review(self) -> None:
         _, decisions = prepare_evidence_review(
@@ -121,8 +156,7 @@ class EvidenceReviewTests(unittest.TestCase):
             }
         )
         binding = decisions["cases"][0]["bindings"][0]
-        binding["accepted_chunk_ids"] = ["chunk-1"]
-        binding["review_status"] = "accepted"
+        binding["review_action"] = "accept_proposal"
         self.decisions_path.write_text(
             yaml.safe_dump(decisions, sort_keys=False), encoding="utf-8"
         )
@@ -135,6 +169,7 @@ class EvidenceReviewTests(unittest.TestCase):
 
         self.assertEqual("approved_human_review", gold["status"])
         self.assertEqual(1, gold["summary"]["binding_count"])
+        self.assertEqual("accept_proposal", gold["bindings"][0]["review_action"])
         self.assertEqual(
             "chunk-1", gold["bindings"][0]["accepted_chunks"][0]["chunk_id"]
         )

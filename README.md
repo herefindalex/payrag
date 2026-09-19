@@ -160,7 +160,9 @@ fixed and actual provider runs are recorded.
 ## Human evidence review
 
 Prepare a full-text review packet and a pending decision template without
-changing the pilot or promoting ranked candidates to gold:
+changing the pilot or promoting ranked candidates to gold. Each binding receives
+an uncalibrated same-source system proposal so the reviewer does not start from
+an empty form:
 
 ```bash
 conda run -n finance env PYTHONPATH=src python -m payrag.evidence_review prepare \
@@ -171,10 +173,12 @@ conda run -n finance env PYTHONPATH=src python -m payrag.evidence_review prepare
   --decisions-output reports/<snapshot-id>/evidence-review-decisions.yaml
 ```
 
-The reviewer must inspect every binding, select one or more same-source snapshot
-chunks, set every binding to `accepted`, and complete the reviewer, UTC time,
-top-level status, and attestation fields. Validation fails closed when a binding
-is missing, protected metadata changed, the candidate report changed, or an
+An optional local `--proposal-overrides <path>` YAML can seed stronger proposals
+and rationales without approving them. The reviewer inspects every binding and
+sets `review_action` to `accept_proposal` or `accept_modified`; modified decisions
+must include accepted chunk IDs and notes. They then complete the reviewer, UTC
+time, top-level status, and attestation fields. Validation fails closed when a
+binding is missing, metadata changed, the candidate report changed, or an
 accepted chunk belongs to another source:
 
 ```bash
